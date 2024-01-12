@@ -1,0 +1,169 @@
+# Arquivos de configuração
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# Arquivos de build
+/build
+/dist
+
+# Node modules
+/node_modules
+
+# Arquivos de log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos temporários
+*.pem
+*.log
+*.status
+*.sqlite
+*.db
+*.sqlite3
+*.log.*
+*.seed
+*.pid
+*.db-journal
+
+# VSCode
+.vscode/
+
+# Arquivos de configuração do sistema
+.DS_Store
+Thumbs.db
+
+# Dependências específicas do projeto
+/pack
+
+# Dependências locais
+/node_modules
+/.pnp
+.pnp.js
+
+# Logs
+logs
+*.log
+
+# Resultados de teste
+/test-results
+
+# Cobertura de código
+/coverage
+
+# Arquivos de construção Next.js
+/out
+
+# Dependências
+/.next/
+/static/
+
+# Diretório de cache
+.cache/
+
+# Diretório de dados do Nuxt.js
+.nuxt
+
+# Diretório de cache do Jest
+/.jest/
+
+# Diretório de testes
+/__tests__/
+
+# Cypress
+/cypress/
+
+# Dependências da Storybook
+/.storybook/
+
+# Diretório de compilação do Gatsby
+/public/
+
+# Diretório de construção do Hugo
+/resources/
+
+# Diretório de construção do Jekyll
+/_site/
+
+# Diretório de compilação do Docusaurus
+/.docusaurus/
+
+# Diretório de compilação do Sphinx
+/_build/
+
+# Diretório de compilação do Grunt
+/dist/
+
+# Diretório de compilação do Bower
+/bower_components/
+
+# Directory of static files (e.g. website/app)
+/public/
+
+# compodoc
+/coverage/
+/compodoc/
+/dist/
+/tmp/
+out-tsc/
+
+# Yarn
+yarn-error.log
+
+# Parcel
+.cache/
+.parcel-cache/
+
+# Next.js
+/.next/
+/out/
+
+# Nuxt.js
+/.nuxt/
+/dist/
+
+# Nest
+/.nestjs/
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# Visual Studio
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Sublime Text
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
