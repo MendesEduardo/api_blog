@@ -1,5 +1,6 @@
 const sql = require("mssql");
 const config = require("../config");
+const { Buffer } = require("buffer");
 
 class PostRepository {
   constructor() {
@@ -27,37 +28,48 @@ class PostRepository {
     }
   }
 
-  async getAllPosts() {
+  async getAllPosts(userId) {
     try {
       const connection = await this.pool.connect();
-      const result = await connection.request().query(`
+      const result = await connection.request().input("userId", sql.Int, userId)
+        .query(`
         SELECT 
           p.PostagemID,
           p.Titulo AS TituloPostagem,
           p.Conteudo AS ConteudoPostagem,
           p.DataCriacao AS DataCriacaoPostagem,
           u.NomeUsuario AS AutorPostagem,
+          p.ImagemURL,
           c.ComentarioID,
           c.Conteudo AS ConteudoComentario,
           c.DataCriacao AS DataCriacaoComentario,
-          cu.NomeUsuario AS AutorComentario
+          cu.NomeUsuario AS AutorComentario,
+          cl.CurtidaID,
+          cl.UsuarioID AS CurtidaUsuarioID
         FROM Postagens p
         LEFT JOIN Comentarios c ON p.PostagemID = c.PostagemID
         LEFT JOIN Usuarios u ON p.UsuarioID = u.UsuarioID
         LEFT JOIN Usuarios cu ON c.UsuarioID = cu.UsuarioID
+        LEFT JOIN Curtidas cl ON p.PostagemID = cl.PostagemID AND cl.UsuarioID = @userId
       `);
+
       connection.close();
 
-      const postsWithComments = result.recordset.reduce((acc, post) => {
+      const postsWithLikes = result.recordset.reduce((acc, post) => {
         const existingPost = acc.find((p) => p.PostagemID === post.PostagemID);
 
         if (!existingPost) {
+          const decodedImage = post.ImagemURL
+            ? Buffer.from(post.ImagemURL, "base64").toString("base64")
+            : null;
+
           acc.push({
             PostagemID: post.PostagemID,
             TituloPostagem: post.TituloPostagem,
             ConteudoPostagem: post.ConteudoPostagem,
             DataCriacaoPostagem: post.DataCriacaoPostagem,
             AutorPostagem: post.AutorPostagem,
+            ImagemURL: decodedImage,
             Comentarios: post.ComentarioID
               ? [
                   {
@@ -68,6 +80,12 @@ class PostRepository {
                   },
                 ]
               : [],
+            Curtida: post.CurtidaID
+              ? {
+                  CurtidaID: post.CurtidaID,
+                  UsuarioID: post.CurtidaUsuarioID,
+                }
+              : null,
           });
         } else {
           existingPost.Comentarios.push({
@@ -81,12 +99,68 @@ class PostRepository {
         return acc;
       }, []);
 
-      return postsWithComments;
+      return postsWithLikes;
     } catch (error) {
       console.error(
-        "Erro ao recuperar postagens e comentários:",
+        "Erro ao recuperar postagens, comentários e curtidas:",
         error.message
       );
+      throw error;
+    }
+  }
+
+  async checkIfPostIsLiked(postID, userID) {
+    try {
+      const connection = await this.pool.connect();
+
+      const result = await connection
+        .request()
+        .input("postID", postID)
+        .input("userID", userID).query(`
+          SELECT COUNT(*) AS likeCount
+          FROM Curtidas
+          WHERE PostagemID = @postID AND UsuarioID = @userID
+        `);
+
+      connection.close();
+
+      return result.recordset[0].likeCount > 0;
+    } catch (error) {
+      console.error("Erro ao verificar se o post foi curtido:", error.message);
+      throw error;
+    }
+  }
+
+  async likePost(postID, userID) {
+    try {
+      const connection = await this.pool.connect();
+
+      await connection.request().input("postID", postID).input("userID", userID)
+        .query(`
+          INSERT INTO Curtidas (PostagemID, UsuarioID)
+          VALUES (@postID, @userID)
+        `);
+
+      connection.close();
+    } catch (error) {
+      console.error("Erro ao curtir o post:", error.message);
+      throw error;
+    }
+  }
+
+  async unlikePost(postID, userID) {
+    try {
+      const connection = await this.pool.connect();
+
+      await connection.request().input("postID", postID).input("userID", userID)
+        .query(`
+          DELETE FROM Curtidas
+          WHERE PostagemID = @postID AND UsuarioID = @userID
+        `);
+
+      connection.close();
+    } catch (error) {
+      console.error("Erro ao descurtir o post:", error.message);
       throw error;
     }
   }
@@ -95,11 +169,16 @@ class PostRepository {
     let connection;
     try {
       connection = await this.pool.connect();
+
+      // Extraia os dados da requisição
+      const { Titulo, Conteudo, UsuarioID, Imagem } = postData;
+
+      // Lógica para inserir uma nova postagem no banco de dados
       const result = await connection.query`
-        INSERT INTO Postagens (Titulo, Conteudo, UsuarioID, DataCriacao)
-        OUTPUT INSERTED.*
-        VALUES (${postData.Titulo}, ${postData.Conteudo}, ${postData.UsuarioID}, GETDATE())
-      `;
+      INSERT INTO Postagens (Titulo, Conteudo, UsuarioID, DataCriacao, ImagemURL)
+      OUTPUT INSERTED.*
+      VALUES (${Titulo}, ${Conteudo}, ${UsuarioID}, GETDATE(), ${Imagem})`;
+
       connection.close();
 
       if (result.recordset && result.recordset.length > 0) {
@@ -119,14 +198,13 @@ class PostRepository {
 
       const { PostagemID, Titulo, Conteudo } = postData;
 
-      // Lógica para editar um post no banco de dados
       const result = await this.pool.query(`
         UPDATE Postagens
         SET Titulo = '${Titulo}', Conteudo = '${Conteudo}'
         WHERE PostagemID = ${PostagemID}
       `);
 
-      return result.recordset; // Se necessário, retorne os dados do post atualizado
+      return result.recordset;
     } catch (error) {
       console.error("Erro ao editar postagem:", error.message);
       throw error;
