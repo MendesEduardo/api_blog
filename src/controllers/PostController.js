@@ -1,9 +1,18 @@
 const CurtidaModel = require("../models/CurtidaModel");
 
 class PostController {
-  constructor(postRepository, curtidaRepository) {
+  constructor(
+    postRepository,
+    curtidaRepository,
+    postService,
+    comentarioRepository,
+    tagRepository
+  ) {
     this.postRepository = postRepository;
     this.curtidaRepository = curtidaRepository;
+    this.postService = postService;
+    this.comentarioRepository = comentarioRepository;
+    this.tagRepository = tagRepository;
   }
 
   async getAllPosts(req, res) {
@@ -11,7 +20,7 @@ class PostController {
       const postsWithComments = await this.postRepository.getAllPosts();
       if (req.user) {
         for (const post of postsWithComments) {
-          post.liked = await this.postRepository.checkIfPostIsLiked(
+          post.liked = await this.curtidaRepository.checkIfPostIsLiked(
             post.PostagemID,
             req.user.userId
           );
@@ -40,16 +49,16 @@ class PostController {
 
       const userID = req.user.userId;
 
-      const postIsLiked = await this.postRepository.checkIfPostIsLiked(
+      const postIsLiked = await this.curtidaRepository.checkIfPostIsLiked(
         PostagemID,
         userID
       );
 
       if (postIsLiked) {
-        await this.postRepository.unlikePost(PostagemID, userID);
+        await this.curtidaRepository.unlikePost(PostagemID, userID);
         res.json({ message: "Post descurtido com sucesso.", liked: null });
       } else {
-        await this.postRepository.likePost(PostagemID, userID);
+        await this.curtidaRepository.likePost(PostagemID, userID);
         res.json({ message: "Post curtido com sucesso.", liked: true });
       }
     } catch (error) {
@@ -92,7 +101,7 @@ class PostController {
     try {
       this.checkAdminPermission(req);
 
-      const { Titulo, Conteudo } = req.body;
+      const { Titulo, Conteudo, Tags } = req.body;
 
       if (!Titulo || !Conteudo) {
         return res
@@ -106,12 +115,33 @@ class PostController {
 
       const imagemBuffer = req.file.buffer;
 
-      const newPost = await this.postRepository.createPost({
+      if (!Tags || !Array.isArray(Tags)) {
+        return res
+          .status(400)
+          .json({ message: "Tags é obrigatório e deve ser um array." });
+      }
+
+      const predefinedTags = ["Tag1", "Tag2", "Tag3", "Tag4"];
+      const validTags = Tags.filter((tag) => predefinedTags.includes(tag));
+
+      if (validTags.length !== Tags.length) {
+        return res.status(400).json({
+          message: "Alguma(s) tag(s) selecionada(s) não é(são) válida(s).",
+        });
+      }
+
+      const newPost = await this.postService.createPost({
         Titulo,
         Conteudo,
         UsuarioID: req.user.userId,
         Imagem: imagemBuffer,
+        validTags,
       });
+
+      await this.tagRepository.associateTagsToPost(
+        newPost.PostagemID,
+        validTags
+      );
 
       res.json({
         message: "Post criado com sucesso.",
@@ -130,7 +160,7 @@ class PostController {
       this.checkAdminPermission(req);
 
       const { PostagemID } = req.params;
-      const { Titulo, Conteudo } = req.body;
+      const { Titulo, Conteudo, TagIDs } = req.body;
 
       connection = await this.postRepository.connect();
 
@@ -147,11 +177,20 @@ class PostController {
         });
       }
 
+      if (TagIDs && !Array.isArray(TagIDs)) {
+        return res.status(400).json({
+          message: "'TagIDs' deve ser um array se fornecido.",
+        });
+      }
+
       const result = await connection.query(`
         UPDATE Postagens
         SET Titulo = '${Titulo}', Conteudo = '${Conteudo}'
         WHERE PostagemID = ${PostagemID}
       `);
+
+      // Atualize as tags associadas à postagem
+      await this.tagRepository.associateTagsToPost(PostagemID, TagIDs);
 
       res.json({
         message: "Post editado com sucesso.",
@@ -224,7 +263,7 @@ class PostController {
           .json({ message: "Conteúdo do comentário é obrigatório." });
       }
 
-      const newComment = await this.postRepository.createComment({
+      const newComment = await this.comentarioRepository.createComment({
         Conteudo,
         UsuarioID: req.user.userId,
         PostagemID,

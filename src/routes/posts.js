@@ -3,8 +3,24 @@ const router = express.Router();
 const verifyToken = require("../middleware/verifyToken");
 const PostController = require('../controllers/PostController');
 const PostRepository = require('../repositories/PostRepository');
+const CurtidaRepository = require("../repositories/CurtidaRepository.js");
+const PostService = require("../repositories/PostService.js");
+const ComentarioRepository = require("../repositories/ComentarioRepository.js");
+const TagRepository = require("../repositories/TagRepository.js");
 
-const postController = new PostController(new PostRepository());
+const postRepository = new PostRepository();
+const curtidaRepository = new CurtidaRepository();
+const postService = new PostService();
+const comentarioRepository = new ComentarioRepository();
+const tagRepository = new TagRepository();
+
+const postController = new PostController(
+    postRepository,
+    curtidaRepository,
+    postService,
+    comentarioRepository,
+    tagRepository
+  );
 
 const multer = require('multer');
 const storage = multer.memoryStorage();
